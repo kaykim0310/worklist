@@ -52,7 +52,8 @@ for i in range(st.session_state.unit_count):
                     무게 = st.number_input(f"[{i+1}-{j+1}] 수공구 무게(kg)", min_value=0.0)
                 with col4:
                     시간 = st.text_input(f"[{i+1}-{j+1}] 작업 횟수/시간")
-                도구.append((명칭, 용도, 무게, 시간))
+                do_goo = {"명칭": 명칭, "용도": 용도, "무게(kg)": 무게, "작업횟수/시간": 시간}
+                도구.append(do_goo)
 
             중량물_수 = st.number_input(f"[{i+1}] 중량물 종류 수", min_value=0, step=1)
             for j in range(중량물_수):
@@ -63,7 +64,8 @@ for i in range(st.session_state.unit_count):
                     무게 = st.number_input(f"[{i+1}-{j+1}] 중량물 무게(kg)", min_value=0.0)
                 with col3:
                     횟수 = st.number_input(f"[{i+1}-{j+1}] 1일 작업 횟수", min_value=0)
-                중량물.append((명칭, 무게, 횟수))
+                joong_ryang_mul = {"명칭": 명칭, "무게(kg)": 무게, "1일 작업 횟수": 횟수}
+                중량물.append(joong_ryang_mul)
 
         보호구 = st.multiselect(f"[{i+1}] 착용 보호구", ["무릎보호대", "손목보호대", "허리보호대", "각반", "기타"])
         작성자 = st.text_input(f"[{i+1}] 작성자 이름")
@@ -93,6 +95,34 @@ for i in range(st.session_state.unit_count):
 if task_units:
     output = io.BytesIO()
     rows = []
+    
+    # Define the desired column order based on the image
+    ordered_columns = [
+        "회사명", "소속", "반", "단위작업명", "작업자 수", "작업자 이름", 
+        "작업형태", "1일 작업시간", 
+        "자세_어깨", "자세_몸통", "자세_쪼그림", "자세_반복전체", "자세_반복무거운"
+    ]
+
+    # Dynamically add columns for up to a reasonable number of tools/heavy objects
+    # Let's assume a maximum of 5 hand tools and 5 heavy objects for column generation
+    max_tools = max([len(unit["도구"]) for unit in task_units]) if task_units else 0
+    max_heavy_objects = max([len(unit["중량물"]) for unit in task_units]) if task_units else 0
+
+    for j in range(max_tools):
+        ordered_columns.extend([
+            f"수공구명_{j+1}", f"수공구 용도_{j+1}", 
+            f"수공구 무게(kg)_{j+1}", f"수공구 작업횟수/시간_{j+1}"
+        ])
+    
+    for j in range(max_heavy_objects):
+        ordered_columns.extend([
+            f"중량물명_{j+1}", f"중량물 무게(kg)_{j+1}", 
+            f"중량물 1일 작업 횟수_{j+1}"
+        ])
+
+    ordered_columns.extend(["보호구", "작성자", "연락처"])
+
+
     for unit in task_units:
         base_row = {
             "회사명": unit["회사명"],
@@ -112,15 +142,30 @@ if task_units:
             "작성자": unit["작성자"],
             "연락처": unit["연락처"]
         }
-        for tool in unit["도구"]:
-            rows.append({**base_row, "구분": "수공구", "명칭": tool[0], "용도": tool[1], "무게(kg)": tool[2], "작업횟수/시간": tool[3]})
-        for mat in unit["중량물"]:
-            rows.append({**base_row, "구분": "중량물", "명칭": mat[0], "용도": "-", "무게(kg)": mat[1], "작업횟수/시간": mat[2]})
-        if not unit["도구"] and not unit["중량물"]:
-            rows.append(base_row)
+
+        # Flatten 중량물 and 도구 into the base_row
+        for j, tool in enumerate(unit["도구"]):
+            base_row[f"수공구명_{j+1}"] = tool["명칭"]
+            base_row[f"수공구 용도_{j+1}"] = tool["용도"]
+            base_row[f"수공구 무게(kg)_{j+1}"] = tool["무게(kg)"]
+            base_row[f"수공구 작업횟수/시간_{j+1}"] = tool["작업횟수/시간"]
+
+        for j, mat in enumerate(unit["중량물"]):
+            base_row[f"중량물명_{j+1}"] = mat["명칭"]
+            base_row[f"중량물 무게(kg)_{j+1}"] = mat["무게(kg)"]
+            base_row[f"중량물 1일 작업 횟수_{j+1}"] = mat["1일 작업 횟수"]
+        
+        rows.append(base_row)
+
+    df = pd.DataFrame(rows)
+    
+    # Reindex the DataFrame to ensure the desired column order
+    # Fill missing columns (if any unit has fewer tools/heavy objects) with NaN
+    df = df.reindex(columns=ordered_columns, fill_value=None)
+
 
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        pd.DataFrame(rows).to_excel(writer, index=False, sheet_name='작업목록')
+        df.to_excel(writer, index=False, sheet_name='작업목록')
 
     st.download_button(
         label="📥 작업목록표 다운로드",
