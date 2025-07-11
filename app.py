@@ -134,16 +134,19 @@ st.session_state.반 = st.text_input("반", value=st.session_state.반, key="inp
 add_unit = st.button("단위작업 추가")
 if add_unit:
     st.session_state.unit_count += 1
+    # 새로운 단위작업 추가 시 빈 데이터 구조 초기화
     st.session_state.task_units.append({
         "회사명": st.session_state.group_name, "소속": st.session_state.소속, "반": st.session_state.반,
         "단위작업명": "", "작업자 수": 1, "작업자 이름": "",
-        "작업형태": "주간", "1일 작업시간": 0, # 이 값은 이제 UI에서 직접 입력받지 않지만, 데이터 구조 유지를 위해 초기화
-        "자세": {}, # 사용 안 함
-        "중량물": [], # 사용 안 함
-        "도구": [], # 사용 안 함
+        "작업형태": "주간", "1일 작업시간": 0,
+        "자세": {},
+        "중량물": [],
+        "도구": [],
         "유해요인_원인분석": [],
         "보호구": [], "작성자": "", "연락처": ""
     })
+    # 단위작업이 추가되면 UI를 즉시 갱신하기 위해 강제 재실행
+    st.rerun()
 
 for i in range(st.session_state.unit_count):
     # 새로운 단위작업이 추가되었을 때 빈 데이터 구조로 초기화 (UI 업데이트를 위해)
@@ -189,6 +192,7 @@ for i in range(st.session_state.unit_count):
         if add_hazard_analysis:
             current_hazard_analysis_data.append({"유형": "", "부담작업": "", "부담작업자세": ""})
             st.session_state.task_units[i]["유해요인_원인분석"] = current_hazard_analysis_data # session_state 업데이트
+            st.rerun() # 항목 추가 후 UI를 즉시 갱신하기 위해 강제 재실행
 
 
         # 삭제 후 reruns를 위해 리스트 복사본 사용 (Streamlit 특성상 필요)
@@ -332,7 +336,7 @@ for i in range(st.session_state.unit_count):
                     hazard_entry["수공구 무게(kg)"] = st.number_input(f"[{i+1}-{k+1}] 수공구 무게(kg)", value=hazard_entry.get("수공구 무게(kg)", 0.0), key=f"기타_수공구무게_{i}_{k}") # 단위 명시
                     hazard_entry["수공구 작업시간(분)"] = st.text_input(f"[{i+1}-{k+1}] 수공구 작업시간(분)", value=hazard_entry.get("수공구 작업시간(분)", ""), key=f"기타_수공구작업시간_{i}_{k}") # 단위 명시
                     hazard_entry["대차 무게(kg)"] = st.number_input(f"[{i+1}-{k+1}] 대차 무게(kg)", value=hazard_entry.get("대차 무게(kg)", 0.0), key=f"기타_대차무게_{i}_{k}") # 단위 명시
-                    hazard_entry["대차위 제품무게(kg)"] = st.number_input(f"[{i+1}-{k+1}] 대차위 제품무게(kg)", value=hazard_entry.get("대차위 제품무게(kg)", 0.0), key=f"기 기타_제품무게_{i}_{k}") # 단위 명시
+                    hazard_entry["대차위 제품무게(kg)"] = st.number_input(f"[{i+1}-{k+1}] 대차위 제품무게(kg)", value=hazard_entry.get("대차위 제품무게(kg)", 0.0), key=f"기타_제품무게_{i}_{k}") # 단위 명시
                     hazard_entry["밀고-당기기 빈도(회/일)"] = st.text_input(f"[{i+1}-{k+1}] 밀고-당기기 빈도(회/일)", value=hazard_entry.get("밀고-당기기 빈도(회/일)", ""), key=f"기타_빈도_{i}_{k}") # 단위 명시
                 else: # 12호 선택 해제 시 필드 초기화
                     hazard_entry["수공구 명"] = ""
