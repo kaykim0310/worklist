@@ -387,7 +387,7 @@ for i in range(st.session_state.unit_count):
                         hazard_entry["작업자가 직접 밀고/당기기"] = st.selectbox(f"[{i+1}-{k+1}] 작업자가 직접 밀고/당기기", 직접_밀당_options, index=selected_직접_밀당_index, key=f"힘_직접_밀당_{i}_{k}")
                         # '기타' 선택 시 설명 적는 난 추가
                         if hazard_entry["작업자가 직접 밀고/당기기"] == "기타":
-                            hazard_entry["기타_밀당_설명"] = st.text_input(f"[{i+1}-{k+1}] 기타 밀기/당기기 방법설명", value=hazard_entry.get("기타_밀당_설명", ""), key=f"힘_기타_밀당_설명_{i}_{k}")
+                            hazard_entry["기타_밀당_설명"] = st.text_input(f"[{i+1}-{k+1}] 기타 밀기/당기기 설명", value=hazard_entry.get("기타_밀당_설명", ""), key=f"힘_기타_밀당_설명_{i}_{k}")
                         else:
                             hazard_entry["기타_밀당_설명"] = ""
                     else:
