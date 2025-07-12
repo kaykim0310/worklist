@@ -424,7 +424,7 @@ for i in range(st.session_state.unit_count):
                             burden_criteria["부담작업_2호"] = "△"
                 
                 elif burden_detail_option == "(6호)하루에 총 2시간 이상 지지되지 않은 상태에서 1kg 이상의 물건을 한손의 손가락으로 집어 옮기거나, 2kg 이상에 상응하는 힘을 가하여 한손의 손가락으로 물건을 쥐는 작업":
-                    if burden_criteria["부 부담작업_6호"] != "O":
+                    if burden_criteria["부담작업_6호"] != "O":
                         if total_work_time_min >= 120: # 2시간 = 120분
                             burden_criteria["부담작업_6호"] = "O"
                         else:
@@ -523,7 +523,7 @@ if st.session_state.task_units:
             f"유해요인_원인분석_수공구_무게(kg)_{j+1}", f"유해요인_원인분석_수공구_사용시간(분)_{j+1}",
             f"유해요인_원인분석_부담부위_{j+1}", f"유해요인_원인분석_반복_회당시간(초/회)_{j+1}", 
             f"유해요인_원인분석_반복_총횟수(회/일)_{j+1}", f"유해요인_원인분석_반복_총시간(분)_{j+1}",
-            f"유해요인_원인분석_반복_물체무게_10호(kg)_{j+1}", f"유해요인_원인분석_반복_분당반복횟수_10호(회/분)_{j+1}",
+            f"유해요인_원인분석_반복_물체무게_10호(kg)_{j+1}", f"유해요인_원인분석_반복_분당반복횟수_10호(회/분)_{j+1}", 
             f"유해요인_원인분석_부담작업자세_{j+1}",
             f"유해요인_원인분석_자세_회당시간(초/회)_{j+1}", f"유해요인_원인분석_자세_총횟수(회/일)_{j+1}", 
             f"유해요인_원인분석_자세_총시간(분)_{j+1}",
@@ -603,7 +603,7 @@ if st.session_state.task_units:
                         end_idx = len(ordered_columns_hazard_analysis)
 
                 for col_name in ordered_columns_hazard_analysis[start_idx:end_idx]:
-                    base_row[col_name] = None
+                        base_row[col_name] = None
 
 
         rows.append(base_row)
@@ -613,13 +613,14 @@ if st.session_state.task_units:
     df = df.reindex(columns=ordered_columns, fill_value=None)
 
     # 파일명 생성
-    if st.session_state.task_units and st.session_state.task_units[0].get("단위작업명"):
-        first_task_name = st.session_state.task_units[0]["단위작업명"]
+    # '반' 이름 사용
+    if st.session_state.반:
+        file_name_base = st.session_state.반
     else:
-        first_task_name = "미정"
+        file_name_base = "미정반" 
     
     current_date = datetime.now().strftime("%y%m%d")
-    file_name = f"작업목록표_{first_task_name}_{current_date}.xlsx"
+    file_name = f"작업목록표_{file_name_base}_{current_date}.xlsx"
 
 
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -628,6 +629,6 @@ if st.session_state.task_units:
     st.download_button(
         label="📥 작업목록표 다운로드",
         data=output.getvalue(),
-        file_name=file_name,
+        file_name=file_name, # 동적으로 생성된 파일명 사용
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
