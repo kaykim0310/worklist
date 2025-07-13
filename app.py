@@ -328,7 +328,7 @@ for i in range(st.session_state.unit_count):
 
                 # 12호 정적자세 관련 필드
                 if "(12호)정적자세" in hazard_entry["부담작업"]:
-                    hazard_entry["작업내용_12호_정적"] = st.text_input(f"[{i+1}-{k+1}] (12호)작업내용", value=hazard_entry.get("작업내용_12호_정적", ""), key=f"반복_작업내용_12호_정적_{i}_{k}")
+                    hazard_entry["작업내용_12호_정적"] = st.text_input(f"[{i+1}-{k+1}] (정적자세)작업내용", value=hazard_entry.get("작업내용_12호_정적", ""), key=f"반복_작업내용_12호_정적_{i}_{k}")
                     hazard_entry["작업시간(분)_12호_정적"] = st.number_input(f"[{i+1}-{k+1}] (정적자세)작업시간(분)", value=hazard_entry.get("작업시간(분)_12호_정적", 0), key=f"반복_작업시간_12호_정적_{i}_{k}")
                     hazard_entry["휴식시간(분)_12호_정적"] = st.number_input(f"[{i+1}-{k+1}] (정적자세)휴식시간(분)", value=hazard_entry.get("휴식시간(분)_12호_정적", 0), key=f"반복_휴식시간_12호_정적_{i}_{k}")
                     hazard_entry["인체부담부위_12호_정적"] = st.text_input(f"[{i+1}-{k+1}] (정적자세)인체부담부위", value=hazard_entry.get("인체부담부위_12호_정적", ""), key=f"반복_인체부담부위_12호_정적_{i}_{k}")
