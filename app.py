@@ -214,6 +214,11 @@ for i in range(st.session_state.unit_count):
 
     unit_data = st.session_state.task_units[i]
 
+    # 회사명, 소속, 반 정보를 각 단위작업에 업데이트
+    unit_data["회사명"] = st.session_state.group_name
+    unit_data["소속"] = st.session_state.소속
+    unit_data["반"] = st.session_state.반
+   
     with st.expander(f"단위작업공정 {i+1} 입력", expanded=True):
         unit_data["단위작업명"] = st.text_input(f"[{i+1}] 단위작업명", value=unit_data.get("단위작업명", ""), key=f"작업명_{i}")
         # 새로운 필드: 작업내용(상세설명)
