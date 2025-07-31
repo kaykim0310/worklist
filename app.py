@@ -64,10 +64,13 @@ if st.session_state.unit_count == 0 and not st.session_state.task_units:
 st.sidebar.header("📊 데이터 불러오기/내보내기")
 uploaded_file = st.sidebar.file_uploader("엑셀 파일 업로드 (재시작/수정)", type=["xlsx"], key="file_uploader")
 
-# 파일 업로드 처리
+# 파일 업로드 처리 (호환성 강화)
 if uploaded_file is not None and not st.session_state.file_processed:
     try:
         df_uploaded = pd.read_excel(uploaded_file, sheet_name='작업목록')
+        
+        # 업로드된 파일의 컬럼들을 확인하고 안전하게 처리
+        st.sidebar.info(f"📄 파일 정보: {len(df_uploaded)} 행의 데이터를 발견했습니다.")
         
         # 기존 데이터 초기화
         st.session_state.task_units = []
@@ -94,11 +97,11 @@ if uploaded_file is not None and not st.session_state.file_processed:
                 "연락처": row.get("연락처", "")
             }
 
-            # 부담작업 데이터 로드
+            # 부담작업 데이터 로드 (안전하게)
             for k_crit in range(1, 13):
                 unit[f"부담작업_{k_crit}호"] = row.get(f"부담작업_{k_crit}호", "X")
 
-            # 유해요인 원인분석 데이터 로드
+            # 유해요인 원인분석 데이터 로드 (호환성 강화)
             FIXED_MAX_HAZARD_ANALYTICS_FOR_PARSE = 5
             for j_hazard in range(FIXED_MAX_HAZARD_ANALYTICS_FOR_PARSE):
                 hazard_type = row.get(f"유해요인_원인분석_유형_{j_hazard+1}")
@@ -132,19 +135,29 @@ if uploaded_file is not None and not st.session_state.file_processed:
                         hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_힘", "")
                         hazard_entry["중량물 명칭"] = row.get(f"유해요인_원인분석_힘_중량물_명칭_{j_hazard+1}", "")
                         hazard_entry["중량물 용도"] = row.get(f"유해요인_원인분석_힘_중량물_용도_{j_hazard+1}", "")
+                        
+                        # 🔧 새 필드들 - 안전하게 로드 (없으면 기본값)
                         hazard_entry["중량물 무게(kg)"] = row.get(f"유해요인_원인분석_중량물_무게(kg)_{j_hazard+1}", 0.0)
                         hazard_entry["하루 8시간동안 중량물을 드는 횟수(회)"] = row.get(f"유해요인_원인분석_하루8시간_중량물_횟수(회)_{j_hazard+1}", 0)
+                        
                         hazard_entry["취급방법"] = row.get(f"유해요인_원인분석_힘_취급방법_{j_hazard+1}", "")
                         hazard_entry["중량물 이동방법"] = row.get(f"유해요인_원인분석_힘_이동방법_{j_hazard+1}", "")
                         hazard_entry["작업자가 직접 밀고/당기기"] = row.get(f"유해요인_원인분석_힘_직접_밀당_{j_hazard+1}", "")
                         hazard_entry["기타_밀당_설명"] = row.get(f"유해요인_원인분석_힘_기타_밀당_설명_{j_hazard+1}", "")
-                        hazard_entry["작업시간동안 작업횟수(회/일)"] = row.get(f"유해요인_원인분석_힘_총횟수(회/일)_{j_hazard+1}", "")
+                        
+                        # 🔧 구버전 호환성: 기존 필드명도 확인
+                        if hazard_entry["작업시간동안 작업횟수(회/일)"] == "":
+                            hazard_entry["작업시간동안 작업횟수(회/일)"] = row.get(f"유해요인_원인분석_힘_총횟수(회/일)_{j_hazard+1}", "")
                         
                     elif hazard_type == "접촉스트레스 또는 기타(진동, 밀고 당기기 등)":
                         hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_기타", "")
-                        if hazard_entry["부담작업"] == "(11호)접촉스트레스":
+                        
+                        # 11호 관련 필드들
+                        if hazard_entry["부담작업"] == "(11호)접촉스트레스" or "(11호)" in str(hazard_entry["부담작업"]):
                             hazard_entry["작업시간(분)"] = row.get(f"유해요인_원인분석_기타_작업시간(분)_{j_hazard+1}", "")
-                        elif hazard_entry["부담작업"] == "(12호)진동작업(그라인더, 임팩터 등)":
+                        
+                        # 12호 진동 관련 필드들
+                        elif hazard_entry["부담작업"] == "(12호)진동작업(그라인더, 임팩터 등)" or "(12호)" in str(hazard_entry["부담작업"]):
                             hazard_entry["진동수공구명"] = row.get(f"유해요인_원인분석_기타_진동수공구명_{j_hazard+1}", "")
                             hazard_entry["진동수공구 용도"] = row.get(f"유해요인_원인분석_기타_진동수공구_용도_{j_hazard+1}", "")
                             hazard_entry["작업시간(분)_진동"] = row.get(f"유해요인_원인분석_기타_작업시간_진동_{j_hazard+1}", "")
@@ -171,7 +184,18 @@ if uploaded_file is not None and not st.session_state.file_processed:
             st.session_state.unit_count = len(loaded_task_units)
             st.session_state.file_processed = True
             
-            st.sidebar.success("✅ 파일이 성공적으로 로드되었습니다!")
+            st.sidebar.success(f"✅ {len(loaded_task_units)}개의 작업이 성공적으로 로드되었습니다!")
+            
+            # 🔧 새 필드 추가 안내
+            missing_fields_count = 0
+            for unit in loaded_task_units:
+                for entry in unit.get("유해요인_원인분석", []):
+                    if entry.get("유형") == "과도한 힘" and entry.get("하루 8시간동안 중량물을 드는 횟수(회)", 0) == 0:
+                        missing_fields_count += 1
+            
+            if missing_fields_count > 0:
+                st.sidebar.info(f"ℹ️ {missing_fields_count}개의 '과도한 힘' 항목에서 새로운 필드들이 기본값으로 설정되었습니다. 필요시 수정해주세요.")
+            
             st.rerun()
         else:
             st.sidebar.warning("업로드된 파일에 유효한 작업 데이터가 없습니다.")
@@ -180,7 +204,8 @@ if uploaded_file is not None and not st.session_state.file_processed:
             st.session_state.task_units = [create_default_unit()]
 
     except Exception as e:
-        st.sidebar.error(f"파일 로드 중 오류 발생: {e}")
+        st.sidebar.error(f"⚠️ 파일 로드 중 오류 발생: {e}")
+        st.sidebar.info("💡 파일 구조나 형식에 문제가 있을 수 있습니다. 새로 작성하거나 파일을 확인해주세요.")
         # 오류 발생 시 기본 데이터로 초기화
         st.session_state.task_units = [create_default_unit()]
         st.session_state.unit_count = 1
