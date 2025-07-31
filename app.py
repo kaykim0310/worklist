@@ -191,9 +191,24 @@ if st.session_state.file_processed:
         st.rerun()
 
 # 회사 정보 입력
-st.session_state.group_name = st.text_input("회사명을 입력하세요", value=st.session_state.group_name, key="input_group_name")
-st.session_state.소속 = st.text_input("소속/팀/그룹", value=st.session_state.소속, key="input_affiliation")
-st.session_state.반 = st.text_input("반", value=st.session_state.반, key="input_class")
+new_group_name = st.text_input("회사명을 입력하세요", value=st.session_state.group_name, key="input_group_name")
+new_소속 = st.text_input("소속/팀/그룹", value=st.session_state.소속, key="input_affiliation")
+new_반 = st.text_input("반", value=st.session_state.반, key="input_class")
+
+# 회사 정보가 변경되면 모든 단위작업에 반영
+if (new_group_name != st.session_state.group_name or 
+    new_소속 != st.session_state.소속 or 
+    new_반 != st.session_state.반):
+    
+    st.session_state.group_name = new_group_name
+    st.session_state.소속 = new_소속
+    st.session_state.반 = new_반
+    
+    # 모든 기존 단위작업에 새 회사 정보 적용
+    for unit in st.session_state.task_units:
+        unit["회사명"] = st.session_state.group_name
+        unit["소속"] = st.session_state.소속
+        unit["반"] = st.session_state.반
 
 # 단위작업 추가 버튼
 col_unit_add_btn, _ = st.columns([0.2, 0.8])
@@ -229,7 +244,11 @@ for i in range(st.session_state.unit_count):
                     st.session_state.unit_count -= 1
                     st.rerun()
         
-        # 기본 정보 입력
+        # 기본 정보 입력 (회사 정보 자동 업데이트)
+        unit_data["회사명"] = st.session_state.group_name
+        unit_data["소속"] = st.session_state.소속
+        unit_data["반"] = st.session_state.반
+        
         unit_data["단위작업명"] = st.text_input(f"[{i+1}] 단위작업명", value=unit_data.get("단위작업명", ""), key=f"작업명_{i}")
         unit_data["작업내용(상세설명)"] = st.text_area(f"[{i+1}] 작업내용(상세설명)", value=unit_data.get("작업내용(상세설명)", ""), key=f"작업내용_{i}")
         unit_data["작업자 수"] = st.number_input(f"[{i+1}] 단위작업별 작업근로자수", min_value=1, step=1, value=unit_data.get("작업자 수", 1), key=f"작업자수_{i}")
