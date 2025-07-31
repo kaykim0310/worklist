@@ -132,11 +132,12 @@ if uploaded_file is not None and not st.session_state.file_processed:
                         hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_힘", "")
                         hazard_entry["중량물 명칭"] = row.get(f"유해요인_원인분석_힘_중량물_명칭_{j_hazard+1}", "")
                         hazard_entry["중량물 용도"] = row.get(f"유해요인_원인분석_힘_중량물_용도_{j_hazard+1}", "")
+                        hazard_entry["중량물 무게(kg)"] = row.get(f"유해요인_원인분석_중량물_무게(kg)_{j_hazard+1}", 0.0)
+                        hazard_entry["하루 8시간동안 중량물을 드는 횟수(회)"] = row.get(f"유해요인_원인분석_하루8시간_중량물_횟수(회)_{j_hazard+1}", 0)
                         hazard_entry["취급방법"] = row.get(f"유해요인_원인분석_힘_취급방법_{j_hazard+1}", "")
                         hazard_entry["중량물 이동방법"] = row.get(f"유해요인_원인분석_힘_이동방법_{j_hazard+1}", "")
                         hazard_entry["작업자가 직접 밀고/당기기"] = row.get(f"유해요인_원인분석_힘_직접_밀당_{j_hazard+1}", "")
                         hazard_entry["기타_밀당_설명"] = row.get(f"유해요인_원인분석_힘_기타_밀당_설명_{j_hazard+1}", "")
-                        hazard_entry["중량물 무게(kg)"] = row.get(f"유해요인_원인분석_중량물_무게(kg)_{j_hazard+1}", 0.0)
                         hazard_entry["작업시간동안 작업횟수(회/일)"] = row.get(f"유해요인_원인분석_힘_총횟수(회/일)_{j_hazard+1}", "")
                         
                     elif hazard_type == "접촉스트레스 또는 기타(진동, 밀고 당기기 등)":
@@ -387,6 +388,8 @@ for i in range(st.session_state.unit_count):
                 
                 hazard_entry["중량물 명칭"] = st.text_input(f"[{i+1}-{k+1}] 중량물 명칭", value=hazard_entry.get("중량물 명칭", ""), key=f"힘_중량물_명칭_{i}_{k}")
                 hazard_entry["중량물 용도"] = st.text_input(f"[{i+1}-{k+1}] 중량물 용도", value=hazard_entry.get("중량물 용도", ""), key=f"힘_중량물_용도_{i}_{k}")
+                hazard_entry["중량물 무게(kg)"] = st.number_input(f"[{i+1}-{k+1}] 중량물 무게(kg)", value=hazard_entry.get("중량물 무게(kg)", 0.0), key=f"중량물_무게_기본_{i}_{k}")
+                hazard_entry["하루 8시간동안 중량물을 드는 횟수(회)"] = st.number_input(f"[{i+1}-{k+1}] 하루 8시간동안 중량물을 드는 횟수(회)", value=hazard_entry.get("하루 8시간동안 중량물을 드는 횟수(회)", 0), min_value=0, step=1, key=f"중량물_횟수_{i}_{k}")
                 
                 취급방법_options = ["", "직접 취급", "크레인 사용"]
                 selected_취급방법_index = 취급방법_options.index(hazard_entry.get("취급방법", "")) if hazard_entry.get("취급방법", "") in 취급방법_options else 0
@@ -415,11 +418,12 @@ for i in range(st.session_state.unit_count):
                     hazard_entry["기타_밀당_설명"] = ""
 
                 if "(12호)밀기/당기기 작업" not in hazard_entry["부담작업"]:
-                    hazard_entry["중량물 무게(kg)"] = st.number_input(f"[{i+1}-{k+1}] 중량물 무게(kg)", value=hazard_entry.get("중량물 무게(kg)", 0.0), key=f"중량물_무게_{i}_{k}")
-                    hazard_entry["작업시간동안 작업횟수(회/일)"] = st.text_input(f"[{i+1}-{k+1}] 작업시간동안 작업횟수(회/일)", value=hazard_entry.get("작업시간동안 작업횟수(회/일)", ""), key=f"힘_총횟수_{i}_{k}")
+                    # 밀기/당기기 작업이 아닌 경우에만 기존 필드들 숨김 처리 (이미 위에서 입력받음)
+                    pass
                 else:
+                    # 밀기/당기기 작업 선택 시 중량물 관련 필드들 초기화
                     hazard_entry["중량물 무게(kg)"] = 0.0
-                    hazard_entry["작업시간동안 작업횟수(회/일)"] = ""
+                    hazard_entry["하루 8시간동안 중량물을 드는 횟수(회)"] = 0
 
             elif hazard_entry["유형"] == "접촉스트레스 또는 기타(진동, 밀고 당기기 등)":
                 burden_other_options = [
@@ -553,7 +557,7 @@ for i in range(st.session_state.unit_count):
                             burden_criteria["부담작업_5호"] = "△"
 
             elif hazard_type == "과도한 힘":
-                work_count_per_day = parse_value(hazard_entry.get("작업시간동안 작업횟수(회/일)"), val_type=int)
+                work_count_per_day = hazard_entry.get("하루 8시간동안 중량물을 드는 횟수(회)", 0)
                 object_weight = hazard_entry.get("중량물 무게(kg)", 0.0)
 
                 if burden_detail_option == "(8호)하루에 10회 이상 25kg 이상의 물체를 드는 작업":
@@ -630,9 +634,10 @@ if st.session_state.task_units:
             f"유해요인_원인분석_자세_총시간(분)_{j+1}",
             f"유해요인_원인분석_부담작업_{j+1}_힘",
             f"유해요인_원인분석_힘_중량물_명칭_{j+1}", f"유해요인_원인분석_힘_중량물_용도_{j+1}", 
+            f"유해요인_원인분석_중량물_무게(kg)_{j+1}", f"유해요인_원인분석_하루8시간_중량물_횟수(회)_{j+1}",
             f"유해요인_원인분석_힘_취급방법_{j+1}", f"유해요인_원인분석_힘_이동방법_{j+1}", 
             f"유해요인_원인분석_힘_직접_밀당_{j+1}", f"유해요인_원인분석_힘_기타_밀당_설명_{j+1}",
-            f"유해요인_원인분석_중량물_무게(kg)_{j+1}", f"유해요인_원인분석_힘_총횟수(회/일)_{j+1}",
+            f"유해요인_원인분석_힘_총횟수(회/일)_{j+1}",
             f"유해요인_원인분석_부담작업_{j+1}_기타",
             f"유해요인_원인분석_기타_작업시간(분)_{j+1}",
             f"유해요인_원인분석_기타_진동수공구명_{j+1}", f"유해요인_원인분석_기타_진동수공구_용도_{j+1}",
@@ -688,11 +693,12 @@ if st.session_state.task_units:
                     base_row[f"유해요인_원인분석_부담작업_{j+1}_힘"] = hazard_entry.get("부담작업", "")
                     base_row[f"유해요인_원인분석_힘_중량물_명칭_{j+1}"] = hazard_entry.get("중량물 명칭", "")
                     base_row[f"유해요인_원인분석_힘_중량물_용도_{j+1}"] = hazard_entry.get("중량물 용도", "")
+                    base_row[f"유해요인_원인분석_중량물_무게(kg)_{j+1}"] = hazard_entry.get("중량물 무게(kg)", 0.0)
+                    base_row[f"유해요인_원인분석_하루8시간_중량물_횟수(회)_{j+1}"] = hazard_entry.get("하루 8시간동안 중량물을 드는 횟수(회)", 0)
                     base_row[f"유해요인_원인분석_힘_취급방법_{j+1}"] = hazard_entry.get("취급방법", "")
                     base_row[f"유해요인_원인분석_힘_이동방법_{j+1}"] = hazard_entry.get("중량물 이동방법", "")
                     base_row[f"유해요인_원인분석_힘_직접_밀당_{j+1}"] = hazard_entry.get("작업자가 직접 밀고/당기기", "")
                     base_row[f"유해요인_원인분석_힘_기타_밀당_설명_{j+1}"] = hazard_entry.get("기타_밀당_설명", "")
-                    base_row[f"유해요인_원인분석_중량물_무게(kg)_{j+1}"] = hazard_entry.get("중량물 무게(kg)", 0.0)
                     base_row[f"유해요인_원인분석_힘_총횟수(회/일)_{j+1}"] = hazard_entry.get("작업시간동안 작업횟수(회/일)", "")
                     
                 elif hazard_entry.get("유형") == "접촉스트레스 또는 기타(진동, 밀고 당기기 등)":
