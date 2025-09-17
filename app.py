@@ -64,126 +64,201 @@ if st.session_state.unit_count == 0 and not st.session_state.task_units:
 st.sidebar.header("📊 데이터 불러오기/내보내기")
 uploaded_file = st.sidebar.file_uploader("엑셀 파일 업로드 (재시작/수정)", type=["xlsx"], key="file_uploader")
 
-# 파일 업로드 처리
+# 파일 업로드 처리 (환경 문제 자동 해결)
 if uploaded_file is not None and not st.session_state.file_processed:
     try:
-        # *** 수정된 부분: engine='openpyxl' 추가 ***
-        df_uploaded = pd.read_excel(uploaded_file, sheet_name='작업목록', engine='openpyxl')
-        
-        # 기존 데이터 초기화
-        st.session_state.task_units = []
-        st.session_state.unit_count = 0
-
-        loaded_task_units = []
-        for index, row in df_uploaded.iterrows():
-            unit = {
-                "회사명": row.get("회사명", ""),
-                "소속": row.get("소속", ""),
-                "반": row.get("반", ""),
-                "단위작업명": row.get("단위작업명", ""),
-                "작업내용(상세설명)": row.get("작업내용(상세설명)", ""),
-                "작업자 수": row.get("작업자 수", 1),
-                "작업자 이름": row.get("작업자 이름", ""),
-                "작업형태": row.get("작업형태", "주간"),
-                "1일 작업시간": row.get("1일 작업시간", 0),
-                "자세": {},
-                "중량물": [],
-                "도구": [],
-                "유해요인_원인분석": [],
-                "보호구": row.get("보호구", "").split(", ") if isinstance(row.get("보호구"), str) and row.get("보호구") else [],
-                "작성자": row.get("작성자", ""),
-                "연락처": row.get("연락처", "")
-            }
-
-            # 부담작업 데이터 로드
-            for k_crit in range(1, 13):
-                unit[f"부담작업_{k_crit}호"] = row.get(f"부담작업_{k_crit}호", "X")
-
-            # 유해요인 원인분석 데이터 로드
-            FIXED_MAX_HAZARD_ANALYTICS_FOR_PARSE = 5
-            for j_hazard in range(FIXED_MAX_HAZARD_ANALYTICS_FOR_PARSE):
-                hazard_type = row.get(f"유해요인_원인분석_유형_{j_hazard+1}")
-                if pd.notna(hazard_type) and str(hazard_type).strip() != "":
-                    hazard_entry = {"유형": hazard_type}
-                    
-                    if hazard_type == "반복동작":
-                        hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_반복", "")
-                        hazard_entry["수공구 종류"] = row.get(f"유해요인_원인분석_수공구_종류_{j_hazard+1}", "")
-                        hazard_entry["수공구 용도"] = row.get(f"유해요인_원인분석_수공구_용도_{j_hazard+1}", "")
-                        hazard_entry["수공구 무게(kg)"] = row.get(f"유해요인_원인분석_수공구_무게(kg)_{j_hazard+1}", 0.0)
-                        hazard_entry["수공구 사용시간(분)"] = row.get(f"유해요인_원인분석_수공구_사용시간(분)_{j_hazard+1}", "")
-                        hazard_entry["부담부위"] = row.get(f"유해요인_원인분석_부담부위_{j_hazard+1}", "")
-                        hazard_entry["회당 반복시간(초/회)"] = row.get(f"유해요인_원인분석_반복_회당시간(초/회)_{j_hazard+1}", "")
-                        hazard_entry["작업시간동안 반복횟수(회/일)"] = row.get(f"유해요인_원인분석_반복_이횟수(회/일)_{j_hazard+1}", "")
-                        hazard_entry["이 작업시간(분)"] = row.get(f"유해요인_원인분석_반복_이시간(분)_{j_hazard+1}", "")
-                        hazard_entry["물체 무게(kg)_10호"] = row.get(f"유해요인_원인분석_반복_물체무게_10호(kg)_{j_hazard+1}", 0.0)
-                        hazard_entry["분당 반복횟수(회/분)_10호"] = row.get(f"유해요인_원인분석_반복_분당반복횟수_10호(회/분)_{j_hazard+1}", "")
-                        hazard_entry["작업내용_12호_정적"] = row.get(f"유해요인_원인분석_반복_작업내용_12호_정적_{j_hazard+1}", "")
-                        hazard_entry["작업시간(분)_12호_정적"] = row.get(f"유해요인_원인분석_반복_작업시간_12호_정적_{j_hazard+1}", "")
-                        hazard_entry["휴식시간(분)_12호_정적"] = row.get(f"유해요인_원인분석_반복_휴식시간_12호_정적_{j_hazard+1}", "")
-                        hazard_entry["인체부담부위_12호_정적"] = row.get(f"유해요인_원인분석_반복_인체부담부위_12호_정적_{j_hazard+1}", "")
-
-                    elif hazard_type == "부자연스러운 자세":
-                        hazard_entry["부담작업자세"] = row.get(f"유해요인_원인분석_부담작업자세_{j_hazard+1}", "")
-                        hazard_entry["회당 반복시간(초/회)"] = row.get(f"유해요인_원인분석_자세_회당시간(초/회)_{j_hazard+1}", "")
-                        hazard_entry["작업시간동안 반복횟수(회/일)"] = row.get(f"유해요인_원인분석_자세_이횟수(회/일)_{j_hazard+1}", "")
-                        hazard_entry["이 작업시간(분)"] = row.get(f"유해요인_원인분석_자세_이시간(분)_{j_hazard+1}", "")
-                        
-                    elif hazard_type == "과도한 힘":
-                        hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_힘", "")
-                        hazard_entry["중량물 명칭"] = row.get(f"유해요인_원인분석_힘_중량물_명칭_{j_hazard+1}", "")
-                        hazard_entry["중량물 용도"] = row.get(f"유해요인_원인분석_힘_중량물_용도_{j_hazard+1}", "")
-                        hazard_entry["중량물 무게(kg)"] = row.get(f"유해요인_원인분석_중량물_무게(kg)_{j_hazard+1}", 0.0)
-                        hazard_entry["하루 8시간동안 중량물을 드는 횟수(회)"] = row.get(f"유해요인_원인분석_하루8시간_중량물_횟수(회)_{j_hazard+1}", 0)
-                        hazard_entry["취급방법"] = row.get(f"유해요인_원인분석_힘_취급방법_{j_hazard+1}", "")
-                        hazard_entry["중량물 이동방법"] = row.get(f"유해요인_원인분석_힘_이동방법_{j_hazard+1}", "")
-                        hazard_entry["작업자가 직접 밀고/당기기"] = row.get(f"유해요인_원인분석_힘_직접_밀당_{j_hazard+1}", "")
-                        hazard_entry["기타_밀당_설명"] = row.get(f"유해요인_원인분석_힘_기타_밀당_설명_{j_hazard+1}", "")
-                        hazard_entry["작업시간동안 작업횟수(회/일)"] = row.get(f"유해요인_원인분석_힘_이횟수(회/일)_{j_hazard+1}", "")
-                        
-                    elif hazard_type == "접촉스트레스 또는 기타(진동, 밀고 당기기 등)":
-                        hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_기타", "")
-                        if hazard_entry["부담작업"] == "(11호)접촉스트레스":
-                            hazard_entry["작업시간(분)"] = row.get(f"유해요인_원인분석_기타_작업시간(분)_{j_hazard+1}", "")
-                        elif hazard_entry["부담작업"] == "(12호)진동작업(그라인더, 임팩터 등)":
-                            hazard_entry["진동수공구명"] = row.get(f"유해요인_원인분석_기타_진동수공구명_{j_hazard+1}", "")
-                            hazard_entry["진동수공구 용도"] = row.get(f"유해요인_원인분석_기타_진동수공구_용도_{j_hazard+1}", "")
-                            hazard_entry["작업시간(분)_진동"] = row.get(f"유해요인_원인분석_기타_작업시간_진동_{j_hazard+1}", "")
-                            hazard_entry["작업빈도(초/회)_진동"] = row.get(f"유해요인_원인분석_기타_작업빈도_진동_{j_hazard+1}", "")
-                            hazard_entry["작업량(회/일)_진동"] = row.get(f"유해요인_원인분석_기타_작업량_진동_{j_hazard+1}", "")
-                            hazard_entry["수공구사용시 지지대가 있는가?"] = row.get(f"유해요인_원인분석_기타_지지대_여부_{j_hazard+1}", "")
-                    
-                    unit["유해요인_원인분석"].append(hazard_entry)
-            
-            # 로드된 데이터에 원인분석 항목이 없으면 기본 1개 추가
-            if not unit["유해요인_원인분석"]:
-                unit["유해요인_원인분석"].append({"유형": "", "부담작업": "", "부담작업자세": ""})
-
-            loaded_task_units.append(unit)
-        
-        if loaded_task_units:
-            # 회사 정보 업데이트
-            st.session_state.group_name = loaded_task_units[0].get("회사명", "")
-            st.session_state.소속 = loaded_task_units[0].get("소속", "")
-            st.session_state.반 = loaded_task_units[0].get("반", "")
-            
-            # 작업 단위 데이터 업데이트
-            st.session_state.task_units = loaded_task_units
-            st.session_state.unit_count = len(loaded_task_units)
-            st.session_state.file_processed = True
-            
-            st.sidebar.success("✅ 파일이 성공적으로 로드되었습니다!")
-            st.rerun()
+        # 1단계: 파일 확장자 검증
+        file_name = uploaded_file.name
+        if not file_name.lower().endswith('.xlsx'):
+            st.sidebar.error("⚠️ .xlsx 파일만 업로드 가능합니다.")
+            st.sidebar.info("Excel에서 '다른 이름으로 저장' → '.xlsx' 형식으로 저장해주세요.")
         else:
-            st.sidebar.warning("업로드된 파일에 유효한 작업 데이터가 없습니다.")
-            # 기본 데이터로 초기화
-            st.session_state.unit_count = 1
-            st.session_state.task_units = [create_default_unit()]
+            # 2단계: 여러 방법으로 파일 읽기 시도
+            df_uploaded = None
+            success_method = None
+            
+            # 방법 1: openpyxl 엔진 사용
+            try:
+                df_uploaded = pd.read_excel(uploaded_file, sheet_name='작업목록', engine='openpyxl')
+                success_method = "openpyxl"
+            except:
+                pass
+            
+            # 방법 2: 기본 엔진 사용
+            if df_uploaded is None:
+                try:
+                    uploaded_file.seek(0)  # 파일 포인터 초기화
+                    df_uploaded = pd.read_excel(uploaded_file, sheet_name='작업목록')
+                    success_method = "default"
+                except:
+                    pass
+            
+            # 방법 3: 시트명 자동 찾기
+            if df_uploaded is None:
+                try:
+                    uploaded_file.seek(0)
+                    # 모든 시트 이름 확인
+                    xl_file = pd.ExcelFile(uploaded_file)
+                    sheet_names = xl_file.sheet_names
+                    
+                    # '작업목록' 시트가 없으면 첫 번째 시트 사용
+                    target_sheet = '작업목록' if '작업목록' in sheet_names else sheet_names[0]
+                    df_uploaded = pd.read_excel(uploaded_file, sheet_name=target_sheet)
+                    success_method = f"auto_sheet_{target_sheet}"
+                    
+                    if target_sheet != '작업목록':
+                        st.sidebar.warning(f"'{target_sheet}' 시트를 사용했습니다. '작업목록' 시트명을 권장합니다.")
+                except:
+                    pass
+            
+            # 모든 방법 실패시
+            if df_uploaded is None:
+                st.sidebar.error("파일을 읽을 수 없습니다.")
+                st.sidebar.markdown("**해결 방법:**")
+                st.sidebar.markdown("1. Excel에서 파일을 다시 열어주세요")
+                st.sidebar.markdown("2. '다른 이름으로 저장' → '.xlsx' 형식 선택")
+                st.sidebar.markdown("3. 시트 이름을 '작업목록'으로 변경")
+                st.sidebar.markdown("4. 파일을 다시 업로드해주세요")
+                
+                # 기본 데이터로 초기화
+                st.session_state.task_units = [create_default_unit()]
+                st.session_state.unit_count = 1
+            else:
+                # 성공시 처리
+                st.sidebar.success(f"✅ 파일이 성공적으로 로드되었습니다!")
+                
+                # 기존 데이터 초기화
+                st.session_state.task_units = []
+                st.session_state.unit_count = 0
+
+                loaded_task_units = []
+                for index, row in df_uploaded.iterrows():
+                    unit = {
+                        "회사명": str(row.get("회사명", "")).strip(),
+                        "소속": str(row.get("소속", "")).strip(),
+                        "반": str(row.get("반", "")).strip(),
+                        "단위작업명": str(row.get("단위작업명", "")).strip(),
+                        "작업내용(상세설명)": str(row.get("작업내용(상세설명)", "")).strip(),
+                        "작업자 수": int(row.get("작업자 수", 1)) if pd.notna(row.get("작업자 수")) else 1,
+                        "작업자 이름": str(row.get("작업자 이름", "")).strip(),
+                        "작업형태": str(row.get("작업형태", "주간")).strip(),
+                        "1일 작업시간": row.get("1일 작업시간", 0),
+                        "자세": {},
+                        "중량물": [],
+                        "도구": [],
+                        "유해요인_원인분석": [],
+                        "보호구": [],
+                        "작성자": str(row.get("작성자", "")).strip(),
+                        "연락처": str(row.get("연락처", "")).strip()
+                    }
+                    
+                    # 보호구 데이터 처리 (안전하게)
+                    protection_gear_str = row.get("보호구", "")
+                    if pd.notna(protection_gear_str) and str(protection_gear_str).strip():
+                        unit["보호구"] = [item.strip() for item in str(protection_gear_str).split(",") if item.strip()]
+
+                    # 부담작업 데이터 로드 (안전하게)
+                    for k_crit in range(1, 13):
+                        col_name = f"부담작업_{k_crit}호"
+                        value = row.get(col_name, "X")
+                        unit[col_name] = str(value).strip() if pd.notna(value) else "X"
+
+                    # 유해요인 원인분석 데이터 로드
+                    FIXED_MAX_HAZARD_ANALYTICS_FOR_PARSE = 5
+                    for j_hazard in range(FIXED_MAX_HAZARD_ANALYTICS_FOR_PARSE):
+                        hazard_type = row.get(f"유해요인_원인분석_유형_{j_hazard+1}")
+                        if pd.notna(hazard_type) and str(hazard_type).strip() != "":
+                            hazard_entry = {"유형": hazard_type}
+                            
+                            if hazard_type == "반복동작":
+                                hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_반복", "")
+                                hazard_entry["수공구 종류"] = row.get(f"유해요인_원인분석_수공구_종류_{j_hazard+1}", "")
+                                hazard_entry["수공구 용도"] = row.get(f"유해요인_원인분석_수공구_용도_{j_hazard+1}", "")
+                                hazard_entry["수공구 무게(kg)"] = row.get(f"유해요인_원인분석_수공구_무게(kg)_{j_hazard+1}", 0.0)
+                                hazard_entry["수공구 사용시간(분)"] = row.get(f"유해요인_원인분석_수공구_사용시간(분)_{j_hazard+1}", "")
+                                hazard_entry["부담부위"] = row.get(f"유해요인_원인분석_부담부위_{j_hazard+1}", "")
+                                hazard_entry["회당 반복시간(초/회)"] = row.get(f"유해요인_원인분석_반복_회당시간(초/회)_{j_hazard+1}", "")
+                                hazard_entry["작업시간동안 반복횟수(회/일)"] = row.get(f"유해요인_원인분석_반복_이횟수(회/일)_{j_hazard+1}", "")
+                                hazard_entry["이 작업시간(분)"] = row.get(f"유해요인_원인분석_반복_이시간(분)_{j_hazard+1}", "")
+                                hazard_entry["물체 무게(kg)_10호"] = row.get(f"유해요인_원인분석_반복_물체무게_10호(kg)_{j_hazard+1}", 0.0)
+                                hazard_entry["분당 반복횟수(회/분)_10호"] = row.get(f"유해요인_원인분석_반복_분당반복횟수_10호(회/분)_{j_hazard+1}", "")
+                                hazard_entry["작업내용_12호_정적"] = row.get(f"유해요인_원인분석_반복_작업내용_12호_정적_{j_hazard+1}", "")
+                                hazard_entry["작업시간(분)_12호_정적"] = row.get(f"유해요인_원인분석_반복_작업시간_12호_정적_{j_hazard+1}", "")
+                                hazard_entry["휴식시간(분)_12호_정적"] = row.get(f"유해요인_원인분석_반복_휴식시간_12호_정적_{j_hazard+1}", "")
+                                hazard_entry["인체부담부위_12호_정적"] = row.get(f"유해요인_원인분석_반복_인체부담부위_12호_정적_{j_hazard+1}", "")
+
+                            elif hazard_type == "부자연스러운 자세":
+                                hazard_entry["부담작업자세"] = row.get(f"유해요인_원인분석_부담작업자세_{j_hazard+1}", "")
+                                hazard_entry["회당 반복시간(초/회)"] = row.get(f"유해요인_원인분석_자세_회당시간(초/회)_{j_hazard+1}", "")
+                                hazard_entry["작업시간동안 반복횟수(회/일)"] = row.get(f"유해요인_원인분석_자세_이횟수(회/일)_{j_hazard+1}", "")
+                                hazard_entry["이 작업시간(분)"] = row.get(f"유해요인_원인분석_자세_이시간(분)_{j_hazard+1}", "")
+                                
+                            elif hazard_type == "과도한 힘":
+                                hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_힘", "")
+                                hazard_entry["중량물 명칭"] = row.get(f"유해요인_원인분석_힘_중량물_명칭_{j_hazard+1}", "")
+                                hazard_entry["중량물 용도"] = row.get(f"유해요인_원인분석_힘_중량물_용도_{j_hazard+1}", "")
+                                hazard_entry["중량물 무게(kg)"] = row.get(f"유해요인_원인분석_중량물_무게(kg)_{j_hazard+1}", 0.0)
+                                hazard_entry["하루 8시간동안 중량물을 드는 횟수(회)"] = row.get(f"유해요인_원인분석_하루8시간_중량물_횟수(회)_{j_hazard+1}", 0)
+                                hazard_entry["취급방법"] = row.get(f"유해요인_원인분석_힘_취급방법_{j_hazard+1}", "")
+                                hazard_entry["중량물 이동방법"] = row.get(f"유해요인_원인분석_힘_이동방법_{j_hazard+1}", "")
+                                hazard_entry["작업자가 직접 밀고/당기기"] = row.get(f"유해요인_원인분석_힘_직접_밀당_{j_hazard+1}", "")
+                                hazard_entry["기타_밀당_설명"] = row.get(f"유해요인_원인분석_힘_기타_밀당_설명_{j_hazard+1}", "")
+                                hazard_entry["작업시간동안 작업횟수(회/일)"] = row.get(f"유해요인_원인분석_힘_이횟수(회/일)_{j_hazard+1}", "")
+                                
+                            elif hazard_type == "접촉스트레스 또는 기타(진동, 밀고 당기기 등)":
+                                hazard_entry["부담작업"] = row.get(f"유해요인_원인분석_부담작업_{j_hazard+1}_기타", "")
+                                if hazard_entry["부담작업"] == "(11호)접촉스트레스":
+                                    hazard_entry["작업시간(분)"] = row.get(f"유해요인_원인분석_기타_작업시간(분)_{j_hazard+1}", "")
+                                elif hazard_entry["부담작업"] == "(12호)진동작업(그라인더, 임팩터 등)":
+                                    hazard_entry["진동수공구명"] = row.get(f"유해요인_원인분석_기타_진동수공구명_{j_hazard+1}", "")
+                                    hazard_entry["진동수공구 용도"] = row.get(f"유해요인_원인분석_기타_진동수공구_용도_{j_hazard+1}", "")
+                                    hazard_entry["작업시간(분)_진동"] = row.get(f"유해요인_원인분석_기타_작업시간_진동_{j_hazard+1}", "")
+                                    hazard_entry["작업빈도(초/회)_진동"] = row.get(f"유해요인_원인분석_기타_작업빈도_진동_{j_hazard+1}", "")
+                                    hazard_entry["작업량(회/일)_진동"] = row.get(f"유해요인_원인분석_기타_작업량_진동_{j_hazard+1}", "")
+                                    hazard_entry["수공구사용시 지지대가 있는가?"] = row.get(f"유해요인_원인분석_기타_지지대_여부_{j_hazard+1}", "")
+                            
+                            unit["유해요인_원인분석"].append(hazard_entry)
+                    
+                    # 빈 행 건너뛰기
+                    if not any([unit["회사명"], unit["단위작업명"], unit["작업내용(상세설명)"]]):
+                        continue
+                        
+                    # 로드된 데이터에 원인분석 항목이 없으면 기본 1개 추가
+                    if not unit["유해요인_원인분석"]:
+                        unit["유해요인_원인분석"].append({"유형": "", "부담작업": "", "부담작업자세": ""})
+
+                    loaded_task_units.append(unit)
+                
+                if loaded_task_units:
+                    # 회사 정보 업데이트
+                    st.session_state.group_name = loaded_task_units[0].get("회사명", "")
+                    st.session_state.소속 = loaded_task_units[0].get("소속", "")
+                    st.session_state.반 = loaded_task_units[0].get("반", "")
+                    
+                    # 작업 단위 데이터 업데이트
+                    st.session_state.task_units = loaded_task_units
+                    st.session_state.unit_count = len(loaded_task_units)
+                    st.session_state.file_processed = True
+                    
+                    st.rerun()
+                else:
+                    st.sidebar.warning("업로드된 파일에 유효한 작업 데이터가 없습니다.")
+                    # 기본 데이터로 초기화
+                    st.session_state.unit_count = 1
+                    st.session_state.task_units = [create_default_unit()]
 
     except Exception as e:
-        st.sidebar.error(f"파일 로드 중 오류 발생: {e}")
-        st.sidebar.info("💡 해결 방법: 파일이 올바른 .xlsx 형식인지 확인하고, 'openpyxl' 라이브러리가 설치되어 있는지 확인하세요.")
-        # 오류 발생 시 기본 데이터로 초기화
+        st.sidebar.error("파일 처리 중 문제가 발생했습니다.")
+        st.sidebar.markdown("**간단 해결법:**")
+        st.sidebar.markdown("1. Excel에서 파일을 다시 저장해주세요")
+        st.sidebar.markdown("2. 다른 Excel 파일로 테스트해보세요")
+        st.sidebar.markdown("3. 문제가 계속되면 관리자에게 문의하세요")
+        
+        # 개발자용 상세 오류 (숨김 처리)
+        with st.sidebar.expander("기술적 오류 정보 (고급 사용자용)"):
+            st.code(f"오류: {str(e)}")
+        
+        # 기본 데이터로 초기화
         st.session_state.task_units = [create_default_unit()]
         st.session_state.unit_count = 1
 
