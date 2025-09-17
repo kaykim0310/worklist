@@ -64,68 +64,99 @@ if st.session_state.unit_count == 0 and not st.session_state.task_units:
 st.sidebar.header("📊 데이터 불러오기/내보내기")
 uploaded_file = st.sidebar.file_uploader("엑셀 파일 업로드 (재시작/수정)", type=["xlsx"], key="file_uploader")
 
-# 파일 업로드 처리 (환경 문제 자동 해결)
+# 파일 업로드 처리 (강화된 진단 기능)
 if uploaded_file is not None and not st.session_state.file_processed:
     try:
-        # 1단계: 파일 확장자 검증
+        # 1단계: 파일 정보 표시
         file_name = uploaded_file.name
+        file_size = uploaded_file.size
+        
+        st.sidebar.info(f"📁 파일: {file_name} ({file_size} bytes)")
+        
         if not file_name.lower().endswith('.xlsx'):
             st.sidebar.error("⚠️ .xlsx 파일만 업로드 가능합니다.")
             st.sidebar.info("Excel에서 '다른 이름으로 저장' → '.xlsx' 형식으로 저장해주세요.")
         else:
-            # 2단계: 여러 방법으로 파일 읽기 시도
+            # 2단계: 파일 진단
             df_uploaded = None
             success_method = None
+            error_details = []
             
-            # 방법 1: openpyxl 엔진 사용
+            # 방법 1: openpyxl 엔진으로 시트 목록 확인
             try:
-                df_uploaded = pd.read_excel(uploaded_file, sheet_name='작업목록', engine='openpyxl')
-                success_method = "openpyxl"
-            except:
-                pass
-            
-            # 방법 2: 기본 엔진 사용
-            if df_uploaded is None:
-                try:
-                    uploaded_file.seek(0)  # 파일 포인터 초기화
-                    df_uploaded = pd.read_excel(uploaded_file, sheet_name='작업목록')
-                    success_method = "default"
-                except:
-                    pass
-            
-            # 방법 3: 시트명 자동 찾기
-            if df_uploaded is None:
+                uploaded_file.seek(0)
+                xl_file = pd.ExcelFile(uploaded_file, engine='openpyxl')
+                sheet_names = xl_file.sheet_names
+                st.sidebar.success(f"🔍 발견된 시트: {', '.join(sheet_names)}")
+            except Exception as e:
                 try:
                     uploaded_file.seek(0)
-                    # 모든 시트 이름 확인
                     xl_file = pd.ExcelFile(uploaded_file)
                     sheet_names = xl_file.sheet_names
+                    st.sidebar.success(f"🔍 발견된 시트: {', '.join(sheet_names)}")
+                except Exception as e2:
+                    sheet_names = []
+                    error_details.append(f"시트 목록 확인 실패: {str(e2)}")
+                    st.sidebar.warning("시트 정보를 읽을 수 없습니다.")
+            
+            # 방법 2: 각 방법으로 파일 읽기 시도
+            methods_to_try = [
+                ("openpyxl + 작업목록", lambda: pd.read_excel(uploaded_file, sheet_name='작업목록', engine='openpyxl')),
+                ("기본엔진 + 작업목록", lambda: pd.read_excel(uploaded_file, sheet_name='작업목록')),
+            ]
+            
+            # 시트가 발견되었으면 첫번째 시트로도 시도
+            if sheet_names:
+                first_sheet = sheet_names[0]
+                methods_to_try.extend([
+                    (f"openpyxl + {first_sheet}", lambda: pd.read_excel(uploaded_file, sheet_name=first_sheet, engine='openpyxl')),
+                    (f"기본엔진 + {first_sheet}", lambda: pd.read_excel(uploaded_file, sheet_name=first_sheet)),
+                ])
+            
+            for method_name, method_func in methods_to_try:
+                try:
+                    uploaded_file.seek(0)
+                    df_uploaded = method_func()
+                    success_method = method_name
+                    st.sidebar.success(f"✅ 성공: {method_name}")
                     
-                    # '작업목록' 시트가 없으면 첫 번째 시트 사용
-                    target_sheet = '작업목록' if '작업목록' in sheet_names else sheet_names[0]
-                    df_uploaded = pd.read_excel(uploaded_file, sheet_name=target_sheet)
-                    success_method = f"auto_sheet_{target_sheet}"
-                    
-                    if target_sheet != '작업목록':
-                        st.sidebar.warning(f"'{target_sheet}' 시트를 사용했습니다. '작업목록' 시트명을 권장합니다.")
-                except:
-                    pass
+                    # 데이터 미리보기
+                    if len(df_uploaded) > 0:
+                        st.sidebar.info(f"📊 {len(df_uploaded)}행 {len(df_uploaded.columns)}열 데이터 발견")
+                        with st.sidebar.expander("데이터 미리보기"):
+                            st.dataframe(df_uploaded.head(3))
+                    break
+                except Exception as e:
+                    error_details.append(f"{method_name}: {str(e)}")
+                    continue
             
             # 모든 방법 실패시
             if df_uploaded is None:
-                st.sidebar.error("파일을 읽을 수 없습니다.")
-                st.sidebar.markdown("**해결 방법:**")
-                st.sidebar.markdown("1. Excel에서 파일을 다시 열어주세요")
-                st.sidebar.markdown("2. '다른 이름으로 저장' → '.xlsx' 형식 선택")
-                st.sidebar.markdown("3. 시트 이름을 '작업목록'으로 변경")
-                st.sidebar.markdown("4. 파일을 다시 업로드해주세요")
+                st.sidebar.error("❌ 파일을 읽을 수 없습니다.")
+                
+                # 상세 오류 정보 표시
+                with st.sidebar.expander("🔧 상세 오류 정보"):
+                    for error in error_details:
+                        st.text(error)
+                
+                st.sidebar.markdown("**💡 해결 방법:**")
+                st.sidebar.markdown("1. **Excel에서 파일 다시 저장**")
+                st.sidebar.markdown("   - Excel로 파일 열기")
+                st.sidebar.markdown("   - 파일 → 다른이름으로저장 → .xlsx 선택")
+                st.sidebar.markdown("2. **시트 이름 확인**")
+                if sheet_names:
+                    st.sidebar.markdown(f"   - 현재 시트: {', '.join(sheet_names)}")
+                    st.sidebar.markdown("   - 첫 번째 시트를 '작업목록'으로 이름 변경")
+                else:
+                    st.sidebar.markdown("   - 시트 이름을 '작업목록'으로 설정")
+                st.sidebar.markdown("3. **파일 재업로드**")
                 
                 # 기본 데이터로 초기화
                 st.session_state.task_units = [create_default_unit()]
                 st.session_state.unit_count = 1
             else:
                 # 성공시 처리
-                st.sidebar.success(f"✅ 파일이 성공적으로 로드되었습니다!")
+                st.sidebar.success(f"🎉 파일 로드 성공! ({success_method})")
                 
                 # 기존 데이터 초기화
                 st.session_state.task_units = []
